@@ -1,7 +1,5 @@
 # <center>简易质点模型开发文档</center>
 
-<center>韩颢颐 2022年5月4日</center>
-
 ## 一 开发环境及工具
 
 - 开发及运行环境：Windows 10

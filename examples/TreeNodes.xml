@@ -1,0 +1,85 @@
+<?xml version="1.0"?>
+
+<root main_tree_to_execute="MainTree">
+	<BehaviorTree ID="MainTree">
+		<Sequence>
+			<Action ID="CreateMass" pos="{now_pos}" setpos="{now_pos}"/>
+			<Action ID="CreateInterTarget" target="{inter_target}" settarget="{inter_target}"/>
+			<Fallback name="main_control">
+				<Condition ID="IsOnTarget" pos="{now_pos}"/>
+				<ForceFailure>
+					<Sequence name="move_and_set_target">
+						<ForceSuccess>
+							<Condition ID="IsCloseToTarget" pos="{now_pos}" setgear="{gear}"/>
+						</ForceSuccess>
+						<SubTree ID="MoveBase" now_pos="now_pos" gear="gear" inter_target="inter_target"/>
+						<Action ID="ResetInterTarget" settarget="{inter_target}" setgear="high"/>
+					</Sequence>
+				</ForceFailure>
+			</Fallback>
+		</Sequence>
+	</BehaviorTree>
+	<BehaviorTree ID="MoveBase">
+		<Sequence name="move_to_intertarget">
+			<Fallback name="avoid_hinder">
+				<Inverter>
+					<Condition ID="IsThereHinder" pos="{now_pos}" gear="{gear}" setgear="{gear}"/>
+				</Inverter>
+				<Action ID="ChangeInterTarget" pos="{now_pos}" settarget="{inter_target}"/>
+			</Fallback>
+			<Action ID="MoveTo" pos="{now_pos}" gear="{gear}" target="{inter_target}" setpos="{now_pos}"/>
+		</Sequence>
+	</BehaviorTree>
+	<TreeNodesModel>
+		<!-- ############################### ACTION NODES ################################# -->
+		<Action ID="CreateMass">
+			<input_port name="pos" type="Point2D">get the current position</input_port>
+			<output_port name="setpos" type="Point2D">transfer the position to output or reset the original position</output_port>
+		</Action>
+		<Action ID="CreateInterTarget">
+			<input_port name="target" type="Point2D">get the current target</input_port>
+			<output_port name="settarget" type="Point2D">transfer the target to output or reset the original target</output_port>
+		</Action>		
+		<Action ID="ChangeInterTarget">
+			<input_port name="pos" type="Point2D">get the current position</input_port>
+			<output_port name="settarget" type="Point2D">set a new intermediate target to avoid the hinder</output_port>
+		</Action>
+		<Action ID="MoveTo">
+			<input_port name="pos" type="Point2D">get the current position</input_port>
+			<input_port name="gear" type="std::string">get the current gear</input_port>
+			<input_port name="target" type="Point2D">get the target to move</input_port>
+			<output_port name="setpos" type="Point2D">change the current position</output_port>
+		</Action>
+		<Action ID="ResetInterTarget">
+			<output_port name="settarget" type="Point2D">reset the original target</output_port>
+			<output_port name="setgear" type="std::string">reset the original gear as high</output_port>
+		</Action>
+
+		<!-- ############################### CONDITION NODES ############################## -->
+		<Condition ID="IsOnTarget">
+			<input_port name="pos" type="Point2D">get the current position</input_port>
+		</Condition>
+		<Condition ID="IsCloseToTarget">
+			<input_port name="pos" type="Point2D">get the current position</input_port>
+			<output_port name="setgear" type="std::string">set the gear according to the result</output_port>
+		</Condition>
+		<Condition ID="IsThereHinder">
+			<input_port name="pos" type="Point2D">get the current position</input_port>
+			<input_port name="gear" type="std::string">get the current gear</input_port>
+			<output_port name="setgear" type="std::string">set the gear according to the result</output_port>
+		</Condition>
+
+		<!-- ############################### CONTROL NODES ################################ -->
+
+
+		<!-- ############################### DECORATOR NODES ############################## -->
+
+
+		<!-- ############################### SUBTREE ###################################### -->
+		<SubTree ID="MoveBase">
+			<input_port name="gear"/>
+			<input_port name="inter_target"/>
+			<inout_port name="now_pos"/>
+		</SubTree>
+	</TreeNodesModel>
+</root>

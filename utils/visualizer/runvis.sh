@@ -1,0 +1,1 @@
+gnuplot -p "./draw_trace.gnu"

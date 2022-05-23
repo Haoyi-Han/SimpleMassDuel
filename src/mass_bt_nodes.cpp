@@ -5,9 +5,11 @@
 #include <iomanip>
 #include <cmath>
 #include <cstring>
+#include <unordered_map>
 
 // using namespace BT;
-// using namespace MassBTNodes;
+
+const double ZERO_CHKPT(1e-9);
 
 // This function must be implemented in the .cpp file to create
 // a plugin that can be loaded at run-time
@@ -18,15 +20,12 @@ BT_REGISTER_NODES(factory)
 
 namespace MassBTNodes
 {
+	double tick_time(1.00);
 	std::string tracemass_filename = "";
-	
-	double convertSpeedFromGear(std::string gear)
+
+	double gearToSpeed(std::string gear)
 	{
-		if (gear == "high") return speed_high;
-		else if (gear == "mid") return speed_mid;
-		else if (gear == "low") return speed_low;
-		// if wrong input, return the default value without throwing error
-		else return speed_high;
+		return gear_speed.at(gear).value;
 	}
 
 	BT::NodeStatus CreateMass::tick()
@@ -37,17 +36,16 @@ namespace MassBTNodes
 			_now_pos = _origin;
 			std::cout << "Create a mass for moving." << std::endl;
 		}
-		auto _now_pos_str(pToString(_now_pos));
 		if (_SAVE)
 		{
 			std::ofstream _out;
 			_out.open(_tracemass_filename, std::ios::app);
 			_out << std::setprecision(4) << std::fixed;
-			_out << _now_pos << std::endl;
+			_out << _now_pos.x << " " << _now_pos.y << " " << _now_pos.v * std::cos(_now_pos.theta) << " " << _now_pos.v * std::sin(_now_pos.theta) << std::endl;
 			std::cout << "Write current position to file:" << _tracemass_filename << std::endl;
 			_out.close();
 		}
-		setOutput("setpos", _now_pos_str);
+		setOutput("setpos", pToString(_now_pos));
 		return BT::NodeStatus::SUCCESS;
 	}
 
@@ -59,8 +57,7 @@ namespace MassBTNodes
 			_inter_target = _target;
 			std::cout << "Create a target for moving." << std::endl;
 		}
-		auto _inter_target_str(pToString(_inter_target));
-		setOutput("settarget", _inter_target_str);
+		setOutput("settarget", pToString(_inter_target));
 		return BT::NodeStatus::SUCCESS;
 	}
 
@@ -119,42 +116,40 @@ namespace MassBTNodes
 		{
 			throw BT::RuntimeError("missing required input [gear]");
 		}
-		auto real_line_dist = [](Point2D pA, Point2D pB, Point2D pC)
-		{
-			auto l = calcLineEqCoeff(pA, pB);
-			return CalcDistPointLine(pC, l);
-		} (_now_pos, _target, _hinder);
-		auto real_dist = calcDistPoints(_now_pos, _hinder);
+		// calculate some distances
+		Point2D _predict_pos = _now_pos.move(_tick_time);
+		auto real_dist = calcDistPoints(_predict_pos, _hinder);
+		auto real_line_dist = calcDistTriPoints(_now_pos, _target, _hinder);
 		std::cout << "Distance from Hinder to Mass-Target Line:" << real_line_dist << std::endl;
 		std::cout << "Distance Mass-Hinder:" << real_dist << std::endl;
-		if ((real_line_dist < _m * _safe_dist) && (real_dist < _safe_dist))
+		// encapcule some often-reused codes in the function below
+		auto setGearCondition = [](std::string _gear, std::string new_gear)
 		{
-			if (_gear == "low")
-			{
-				setOutput("setgear", "low");
-				std::cout << "Hinder found. Keep low gear." << std::endl;
-			}
-			else
-			{
-				setOutput("setgear", "mid");
-				std::cout << "Hinder found. Set mid gear." << std::endl;
-			}
-			return BT::NodeStatus::SUCCESS;
-		}
-		else
+			auto _gear_old = _gear;
+			_gear = (_gear == "low") ? "low" : new_gear;
+			std::string out_str = std::string("Hinder") + ((new_gear == "high") ? " not" : "") 
+				+ (" found. ") + ((_gear == _gear_old) ? "Keep " : "Set ") + _gear + " gear.";
+			std::cout << out_str << std::endl;
+			return _gear;
+		};
+		// reduce calculation by check if hinder is next to the progressive direction
+		if (std::cos(calcAngleVectors(_target - _now_pos, _hinder - _now_pos)) <= 0)
 		{
-			if (_gear == "low")
-			{
-				setOutput("setgear", "low");
-				std::cout << "Hinder not found. Keep low gear." << std::endl;
-			}
-			else
-			{
-				setOutput("setgear", "high");
-				std::cout << "Hinder not found. Set high gear." << std::endl;
-			}
+			_gear = setGearCondition(_gear, "high");
+			setOutput("setgear", _gear);
 			return BT::NodeStatus::FAILURE;
 		}
+		// check if predicted position of mass is *not* in the safe range of hinder 
+		if ((real_line_dist > _m * _safe_dist) || (real_dist > _safe_dist))
+		{
+			_gear = setGearCondition(_gear, "high");
+			setOutput("setgear", _gear);
+			return BT::NodeStatus::FAILURE;
+		}
+		// default case: mass in the safe range of hinder
+		_gear = setGearCondition(_gear, "mid");
+		setOutput("setgear", _gear);
+		return BT::NodeStatus::SUCCESS;
 	}
 
 	BT::NodeStatus ChangeInterTarget::tick()
@@ -164,33 +159,46 @@ namespace MassBTNodes
 		{
 			throw BT::RuntimeError("missing required input [now_pos]");
 		}
+		// calculate the inter-target defined by hinder and target_route
 		auto target_route = calcLineEqCoeff(_now_pos, _target);
-		auto dx = std::pow(std::pow(_m * _safe_dist, 2) / (1.0 + std::pow(target_route[1] / target_route[0], 2)), 0.5);
+		Point2D p1, p2;
 		auto l = calcLineEqCoeff(_now_pos, _target);
 		auto isTwoPointBilateral = [](Point2D pA, Point2D pB, std::array <double, 3> l)
 		{
 			return ((l[0] * pA.x + l[1] * pA.y + l[2]) * (l[0] * pB.x + l[1] * pB.y + l[2]) < 0);
 		};
-		Point2D p_1{ _hinder.x - dx, _hinder.y - (l[1] / l[0]) * dx, 0.0, 0.0 };
-		Point2D p_2{ _hinder.x + dx, _hinder.y + (l[1] / l[0]) * dx, 0.0, 0.0 };
-		std::string _target_str;
-		if (isTwoPointBilateral(_hinder, p_1, l))
+		double dx, dy;
+		if (std::abs(target_route[0]) < ZERO_CHKPT)
 		{
-			_target_str = (pToString(p_1));	
+			dx = 0; dy = _m * _safe_dist;
 		}
 		else
 		{
-			_target_str = (pToString(p_2));
+			dx = std::pow(std::pow(_m * _safe_dist, 2) / (1.0 + std::pow(target_route[1] / target_route[0], 2)), 0.5);
+			dy = (l[1] / l[0]) * dx;
 		}
-		setOutput("settarget", _target_str);
-		std::cout << "Add an intertarget to the current route." << std::endl;
+		p1 = { _hinder.x - dx, _hinder.y - dy, 0.0, 0.0 };
+		p2 = { _hinder.x + dx, _hinder.y + dy, 0.0, 0.0 };
+		auto _inter_target = (isTwoPointBilateral(_hinder, p1, l)) ? p1 : p2;
+		// check if the new predicted position is in the hinder range
+		Point2D _predict_pos = _now_pos.move(_tick_time, _now_pos.v, std::atan2(_inter_target.y - _now_pos.y, _inter_target.x - _now_pos.x));
+		auto predict_dist = calcDistPoints(_predict_pos, _hinder);
+		std::cout << _m * _safe_dist - predict_dist << std::endl;
+		if (predict_dist < _m * _safe_dist)
+		{
+			// change inter-target to the intersection point of tangent and safe range
+			auto mass_hinder_TPs = calcTanPointsOnCircle(_now_pos, _hinder, _safe_dist);
+			_inter_target = (isTwoPointBilateral(_hinder, mass_hinder_TPs[0], l)) ? mass_hinder_TPs[0] : mass_hinder_TPs[1];
+			std::cout << "Change to second inter-target." << std::endl;
+		}
+		setOutput("settarget", pToString(_inter_target));
+		printf("Add an intertarget [%.2f, %.2f] to the current route.\n", _inter_target.x, _inter_target.y);
 		return BT::NodeStatus::SUCCESS;
 	}
 
 	BT::NodeStatus ResetInterTarget::tick()
 	{
-		auto _target_str(pToString(_target));
-		setOutput("settarget", _target_str);
+		setOutput("settarget", pToString(_target));
 		setOutput("setgear", "high");
 		std::cout << "Reset intertarget to original target." << std::endl;
 		return BT::NodeStatus::SUCCESS;
@@ -213,19 +221,13 @@ namespace MassBTNodes
 		{
 			throw BT::RuntimeError("missing required input [target]");
 		}
-		double _speed(convertSpeedFromGear(_gear));
+		double _speed(gearToSpeed(_gear));
 		double dx(_inter_target.x - _now_pos.x);
 		double dy(_inter_target.y - _now_pos.y);
-		double dist_now_target(std::pow(dx * dx + dy * dy, 0.5));
-		double nvx(_speed * dx / dist_now_target);
-		double nvy(_speed * dy / dist_now_target);
-		_now_pos.x += _tick_time * nvx;
-		_now_pos.y += _tick_time * nvy;
-		_now_pos.v = _speed;
-		_now_pos.theta = (dx * dy != 0.0) ? std::atan2(dy, dx) : 0.0;
-		printf("Now Position: [%.1f, %.1f]\n", _now_pos.x, _now_pos.y);
-		auto _now_pos_str(pToString(_now_pos));
-		setOutput("setpos", _now_pos_str);
+		double ntheta = (dx * dy != 0.0) ? std::atan2(dy, dx) : 0.0;
+		_now_pos = _now_pos.move(_tick_time, _speed, ntheta);
+		printf("Now Position: [%.2f, %.2f]\n", _now_pos.x, _now_pos.y);
+		setOutput("setpos", pToString(_now_pos));
 		return BT::NodeStatus::SUCCESS;
 	}
 } // end namespace

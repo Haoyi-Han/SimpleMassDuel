@@ -6,6 +6,7 @@
 #include "mass_duel_v1/mass_point.h"
 #include <iostream>
 #include <sstream>
+#include <unordered_map>
 
 namespace BT
 {
@@ -18,7 +19,6 @@ namespace BT
 		}
 		else
 		{
-			//std::cout << parts[0] <<";"<< parts[1] << ";" << parts[2] << ";" << parts[3] << std::endl;
 			Point2D output
 			{
 				convertFromString <double>(parts[0]),
@@ -33,20 +33,34 @@ namespace BT
 
 namespace MassBTNodes
 {
-	// define const variables
-	const double speed_high(5.0); // per second
-	const double speed_mid(3.0); // per second, for escaping from the hinder
-	const double speed_low(1.0); // per second, for reaching the target
-	const double tick_time(1.00); // time period for one tick
-	const double safe_dist(5.0); // safe distance
-	const double reach_dist(0.5); // distance for judging if reached 
-	const double m(1.5); // amplification factor, m > 1
+	// define const positions
 	const Point2D origin{ 0.0, 0.0, 5.0, 0.0 };
 	const Point2D target{ 100.0, 100.0, 0.0, 0.0 };
 	const Point2D hinder{ 39.0, 41.0, 0.0, 0.0 };
+	// define const speeds and gear-speed converter
+	const double speed_high(5.0); // per second
+	const double speed_mid(3.0); // per second, for escaping from the hinder
+	const double speed_low(1.0); // per second, for reaching the target
+	struct Speed2D
+	{
+		double value;
+		Speed2D(double v) : value(v) {}
+		Speed2D() : value(speed_high) {}
+	};
+	const std::unordered_map<std::string, Speed2D> gear_speed
+	{
+		{"high", Speed2D(speed_high)},
+		{"mid", Speed2D(speed_mid)},
+		{"low", Speed2D(speed_low)}
+	};
+	double gearToSpeed(std::string gear);
+	//define const distances and factors
+	const double safe_dist(5.0); // safe distance
+	const double reach_dist(0.5); // distance for judging if reached 
+	const double m(1.5); // amplification factor, m > 1
+	//define extern variables
+	extern double tick_time; // time period for one tick
 	extern std::string tracemass_filename;
-
-	double convertSpeedFromGear(std::string gear);
 
 	inline void SleepMS(int ms)
 	{
@@ -149,10 +163,11 @@ namespace MassBTNodes
 	public:
 		IsThereHinder(const std::string& name, const BT::NodeConfiguration& config) :
 			BT::ConditionNode(name, config) {}
-		void init(Point2D target, Point2D hinder, double safe_dist, double m)
+		void init(Point2D target, Point2D hinder, double tick_time, double safe_dist, double m)
 		{
 			_target = (target);
 			_hinder = (hinder);
+			_tick_time = (tick_time);
 			_safe_dist = (safe_dist);
 			_m = (m);
 		}
@@ -169,6 +184,7 @@ namespace MassBTNodes
 	private:
 		Point2D _target;
 		Point2D _hinder;
+		double _tick_time;
 		double _safe_dist;
 		double _m;
 	};
@@ -178,12 +194,13 @@ namespace MassBTNodes
 	public:
 		ChangeInterTarget(const std::string& name, const BT::NodeConfiguration& config) :
 			BT::SyncActionNode(name, config) {}
-		void init(Point2D target, Point2D hinder, double safe_dist, double m)
+		void init(Point2D target, Point2D hinder, double safe_dist, double m, double tick_time)
 		{
 			_target = (target);
 			_hinder = (hinder);
 			_safe_dist = (safe_dist);
 			_m = (m);
+			_tick_time = (tick_time);
 		}
 		static BT::PortsList providedPorts()
 		{
@@ -200,6 +217,7 @@ namespace MassBTNodes
 		double _safe_dist;
 		Point2D _inter_target;
 		double _m;
+		double _tick_time;
 	};
 
 	class ResetInterTarget : public BT::SyncActionNode
@@ -297,12 +315,12 @@ namespace MassBTNodes
 			}
 			else if (auto node_IsThereHinder = dynamic_cast<IsThereHinder*>(node.get()))
 			{
-				node_IsThereHinder->init(target, hinder, safe_dist, m);
+				node_IsThereHinder->init(target, hinder, tick_time, safe_dist, m);
 				std::cout << "Node IsThereHinder Initialized." << std::endl;
 			}
 			else if (auto node_ChangeInterTarget = dynamic_cast<ChangeInterTarget*>(node.get()))
 			{
-				node_ChangeInterTarget->init(target, hinder, safe_dist, m);
+				node_ChangeInterTarget->init(target, hinder, safe_dist, m, tick_time);
 				std::cout << "Node ChangeInterTarget Initialized." << std::endl;
 			}
 			else if (auto node_ResetInterTarget = dynamic_cast<ResetInterTarget*>(node.get()))

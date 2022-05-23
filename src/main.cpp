@@ -82,10 +82,11 @@ int main(int argc, char** argv)
 		("help,h", "produce help message")
 		("text,t", "read xml from program stored default text")
 		("file,f", bpo::value<std::string>()->implicit_value("./TreeNodes.xml"), "read xml from given file path")
+		("ticktime,c", bpo::value<double>()->implicit_value(0.5), "define a time period for each tick")
 		("logprint,p", "display state changes in terminal")
 		("logrecord,r", bpo::value<std::string>()->implicit_value("bt_trace"), "record state changes in file")
 		("logmonitor,m", "use ZeroMQ to publish state changes for Groot to monitor")
-		("savetrace,s", bpo::value<std::string>()->implicit_value("./trace_mass.txt"), "save the traject of mass point to file")
+		("savetrace,s", bpo::value<std::string>()->implicit_value("./trace_mass.dat"), "save the traject of mass point to file")
 		("loop,l", "turn on loop mode to tick multi times till end");		
 	bpo::variables_map vm;
 	try
@@ -125,12 +126,15 @@ int main(int argc, char** argv)
 		std::cout << "Read from external xml file ..." << std::endl;
 		tree = factory.createTreeFromFile(vm["file"].as<std::string>(), bb);
 	}
+	
+	const bool CALLTIME = vm.count("ticktime");
 	const bool LOGPRINT = vm.count("logprint");
 	const bool LOGRECORD = vm.count("logrecord");
 	const bool LOGMONITOR = vm.count("logmonitor");
 	const bool SAVETRACE = vm.count("savetrace");
 	const bool LOOP = vm.count("loop");
 
+	if (CALLTIME) MassBTNodes::tick_time = vm["ticktime"].as<double>();
 	if (SAVETRACE) MassBTNodes::tracemass_filename = vm["savetrace"].as<std::string>();
 
 	std::cout << "Tree well created." << std::endl;

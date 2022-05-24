@@ -51,19 +51,18 @@ std::array <Point2D, 2> calcTanPointsOnCircle(Point2D pM, Point2D pC, double r)
 {
 	Point2D v_MC = pC - pM;
 	auto d_MC = v_MC.mod();
-	auto d_angle = std::asin(r / d_MC);
+	auto d_angle = std::asin((r / d_MC <= 1) ? (r / d_MC) : 1); // fix error once (r / d_MC > 1) happens
 	auto d_M_TP = d_MC * std::cos(d_angle);
 	v_MC = v_MC.scalar(1.0 / d_MC);
-	std::array<Point2D, 2> pTanPts;
-	pTanPts[0] = Point2D(
-		v_MC.x * std::cos(d_angle) - v_MC.y * std::sin(d_angle),
-		v_MC.x * std::sin(d_angle) + v_MC.y * std::cos(d_angle)
-	);
-	pTanPts[1] = Point2D(
-		v_MC.x * std::cos(-d_angle) - v_MC.y * std::sin(-d_angle),
-		v_MC.x * std::sin(-d_angle) + v_MC.y * std::cos(-d_angle)
-	);
-	pTanPts[0] = pTanPts[0].scalar(d_M_TP) + pM;
-	pTanPts[1] = pTanPts[1].scalar(d_M_TP) + pM;
+	std::array<Point2D, 2> pTanPts{
+		v_MC.rot(d_angle).scalar(d_M_TP) + pM,
+		v_MC.rot(-d_angle).scalar(d_M_TP) + pM
+	};
 	return pTanPts;
+}
+
+double calcWeightedAvg(double A, double B, double fA, double fB)
+{
+	if (fA + fB == 0.0) return 0.0;
+	return (fA * A + fB * B) / (fA + fB);
 }

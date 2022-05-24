@@ -23,9 +23,9 @@
 		<Sequence name="move_to_intertarget">
 			<Fallback name="avoid_hinder">
 				<Inverter>
-					<Condition ID="IsThereHinder" pos="{now_pos}" gear="{gear}" setgear="{gear}"/>
+					<Condition ID="IsThereHinder" pos="{now_pos}" gear="{gear}" setgear="{gear}" setkeyhinder="{key_hinder}"/>
 				</Inverter>
-				<Action ID="ChangeInterTarget" pos="{now_pos}" settarget="{inter_target}"/>
+				<Action ID="ChangeInterTarget" pos="{now_pos}" keyhinder="{key_hinder}" settarget="{inter_target}"/>
 			</Fallback>
 			<Action ID="MoveTo" pos="{now_pos}" gear="{gear}" target="{inter_target}" setpos="{now_pos}"/>
 		</Sequence>
@@ -42,6 +42,7 @@
 		</Action>		
 		<Action ID="ChangeInterTarget">
 			<input_port name="pos" type="Point2D">get the current position</input_port>
+			<input_port name="keyhinder" type="Point2D">get the hinder which is the most threated</input_port>
 			<output_port name="settarget" type="Point2D">set a new intermediate target to avoid the hinder</output_port>
 		</Action>
 		<Action ID="MoveTo">
@@ -67,6 +68,7 @@
 			<input_port name="pos" type="Point2D">get the current position</input_port>
 			<input_port name="gear" type="std::string">get the current gear</input_port>
 			<output_port name="setgear" type="std::string">set the gear according to the result</output_port>
+			<output_port name="setkeyhinder" type="Point2D">set the hinder which is the most threated to the mass</output_port>
 		</Condition>
 
 		<!-- ############################### CONTROL NODES ################################ -->

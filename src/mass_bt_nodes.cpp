@@ -68,7 +68,7 @@ namespace MassBTNodes
 		{
 			throw BT::RuntimeError("missing required input [now_pos]");
 		}
-		auto dist = calcDistPoints(_now_pos, _target);
+		double dist = calcDistPoints(_now_pos, _target);
 		std::cout << "Distance Mass-Target:" << dist << std::endl;
 		if (dist < _reach_dist)
 		{
@@ -89,7 +89,7 @@ namespace MassBTNodes
 		{
 			throw BT::RuntimeError("missing required input [now_pos]");
 		}
-		auto dist = calcDistPoints(_now_pos, _target);
+		double dist = calcDistPoints(_now_pos, _target);
 		if (dist < _safe_dist)
 		{
 			setOutput("setgear", "low");
@@ -116,16 +116,53 @@ namespace MassBTNodes
 		{
 			throw BT::RuntimeError("missing required input [gear]");
 		}
-		// calculate some distances
+		// define conditions for checking a hinder
+		auto isHinderTargetSameDirection = [](Point2D pos, Point2D target, Point2D hinder)
+		{
+			return (std::cos(calcAngleVectors(target - pos, hinder - pos)) <= 0);
+		};
+		auto isPosHitHinder = [](Point2D pos, Point2D hinder, double hinder_safe_dist)
+		{
+			return (calcDistPoints(pos, hinder) <= hinder_safe_dist);
+		};
+		auto isPredictRouteHitHinder = [](Point2D pos, Point2D target, Point2D hinder, double hinder_safe_dist)
+		{
+			return (calcDistTriPoints(pos, target, hinder) <= hinder_safe_dist);
+		};
+		// select the hinder which is the most threated by score
+		auto calcHinderScore = [](Point2D pos, Point2D target, Point2D hinder)
+		{
+			if (std::cos(calcAngleVectors(target - pos, hinder - pos)) <= 0) return 0.0;
+			double normal_factor = calcDistPoints(pos, target);
+			double hinder_mass_dist = calcDistPoints(pos, hinder) / normal_factor;
+			double hinder_massline_dist = calcDistTriPoints(pos, target, hinder) / normal_factor;
+			double factor_hinder_mass(0.7), factor_hinder_massline(0.3);
+			return calcWeightedAvg(hinder_mass_dist, hinder_massline_dist, factor_hinder_mass, factor_hinder_massline);
+		};
+		_now_pos.v = gearToSpeed(_gear);
 		Point2D _predict_pos = _now_pos.move(_tick_time);
-		auto real_dist = calcDistPoints(_predict_pos, _hinder);
-		auto real_line_dist = calcDistTriPoints(_now_pos, _target, _hinder);
+		Point2D _hinder;
+		double hinder_score, hinder_former_score(1.0);
+		for (Point2D _hinder_check : _hinder_list)
+		{
+			hinder_score = calcHinderScore(_predict_pos, _target, _hinder_check);
+			if (hinder_score == 0.0) continue;
+			if (hinder_score < hinder_former_score)
+			{
+				_hinder = _hinder_check;
+				hinder_former_score = hinder_score;
+			}
+			std::cout << "Hinder \{ " << _hinder_check << " \} score: " << hinder_score << std::endl;
+		}
+		// calculate some distances
+		double real_dist = calcDistPoints(_predict_pos, _hinder);
+		double real_line_dist = calcDistTriPoints(_now_pos, _target, _hinder);
 		std::cout << "Distance from Hinder to Mass-Target Line:" << real_line_dist << std::endl;
 		std::cout << "Distance Mass-Hinder:" << real_dist << std::endl;
 		// encapcule some often-reused codes in the function below
 		auto setGearCondition = [](std::string _gear, std::string new_gear)
 		{
-			auto _gear_old = _gear;
+			std::string _gear_old = _gear;
 			_gear = (_gear == "low") ? "low" : new_gear;
 			std::string out_str = std::string("Hinder") + ((new_gear == "high") ? " not" : "") 
 				+ (" found. ") + ((_gear == _gear_old) ? "Keep " : "Set ") + _gear + " gear.";
@@ -133,24 +170,28 @@ namespace MassBTNodes
 			return _gear;
 		};
 		// reduce calculation by check if hinder is next to the progressive direction
-		if (std::cos(calcAngleVectors(_target - _now_pos, _hinder - _now_pos)) <= 0)
+		if (isHinderTargetSameDirection(_now_pos, _target, _hinder))
 		{
 			_gear = setGearCondition(_gear, "high");
 			setOutput("setgear", _gear);
+			setOutput("setkeyhinder", pToString(_hinder));
 			std::cout << "Angle > pi/2, hinder without threat." << std::endl;
 			return BT::NodeStatus::FAILURE;
 		}
 		// check if predicted position of mass is *not* in the safe range of hinder 
-		if ((real_line_dist > _m * _safe_dist) && (real_dist > _safe_dist))
+		if (!(isPredictRouteHitHinder(_now_pos, _target, _hinder, _safe_dist) 
+			&& isPosHitHinder(_predict_pos, _hinder, _safe_dist)))
 		{
 			_gear = setGearCondition(_gear, "high");
 			setOutput("setgear", _gear);
+			setOutput("setkeyhinder", pToString(_hinder));
 			std::cout << "Predicted position not in hinder safe range." << std::endl;
 			return BT::NodeStatus::FAILURE;
 		}
 		// default case: mass in the safe range of hinder
 		_gear = setGearCondition(_gear, "mid");
 		setOutput("setgear", _gear);
+		setOutput("setkeyhinder", pToString(_hinder));
 		std::cout << "Current position in hinder safe range." << std::endl;
 		return BT::NodeStatus::SUCCESS;
 	}
@@ -161,6 +202,11 @@ namespace MassBTNodes
 		if (!getInput<Point2D>("pos", _now_pos))
 		{
 			throw BT::RuntimeError("missing required input [now_pos]");
+		}
+		Point2D _hinder;
+		if (!getInput<Point2D>("keyhinder", _hinder))
+		{
+			throw BT::RuntimeError("missing required input [key_hinder]");
 		}
 		// calculate the inter-target defined by hinder and target_route
 		auto target_route = calcLineEqCoeff(_now_pos, _target);
@@ -182,10 +228,10 @@ namespace MassBTNodes
 		}
 		p1 = { _hinder.x - dx, _hinder.y - dy, 0.0, 0.0 };
 		p2 = { _hinder.x + dx, _hinder.y + dy, 0.0, 0.0 };
-		auto _inter_target = (isTwoPointBilateral(_hinder, p1, l)) ? p1 : p2;
+		Point2D _inter_target = (isTwoPointBilateral(_hinder, p1, l)) ? p1 : p2;
 		// check if the new predicted position is in the hinder range
 		Point2D _predict_pos = _now_pos.move(_tick_time, _now_pos.v, std::atan2(_inter_target.y - _now_pos.y, _inter_target.x - _now_pos.x));
-		auto predict_dist = calcDistPoints(_predict_pos, _hinder);
+		double predict_dist = calcDistPoints(_predict_pos, _hinder);
 		std::cout << "safedist - distNowHnder = " << _safe_dist - calcDistPoints(_now_pos, _hinder) << std::endl;
 		if (predict_dist < _m * _safe_dist)
 		{
@@ -228,6 +274,11 @@ namespace MassBTNodes
 		double dx(_inter_target.x - _now_pos.x);
 		double dy(_inter_target.y - _now_pos.y);
 		double ntheta = (dx * dy != 0.0) ? std::atan2(dy, dx) : 0.0;
+		if (std::abs(_speed * std::cos(ntheta) * _tick_time) > std::abs(dx))
+		{
+			_speed = gearToSpeed("low");
+			std::cout << "Predicted movement will be beyond the range. Set low gear." << std::endl;
+		}
 		_now_pos = _now_pos.move(_tick_time, _speed, ntheta);
 		printf("Now Position: [%.2f, %.2f]\n", _now_pos.x, _now_pos.y);
 		setOutput("setpos", pToString(_now_pos));

@@ -7,6 +7,7 @@
 #include <iostream>
 #include <sstream>
 #include <unordered_map>
+#include <vector>
 
 namespace BT
 {
@@ -36,7 +37,11 @@ namespace MassBTNodes
 	// define const positions
 	const Point2D origin{ 0.0, 0.0, 5.0, 0.0 };
 	const Point2D target{ 100.0, 100.0, 0.0, 0.0 };
-	const Point2D hinder{ 39.0, 41.0, 0.0, 0.0 };
+	const std::vector<Point2D> hinder_list{
+		Point2D(39.0, 41.0),
+		Point2D(61.0, 61.0),
+		Point2D(80.0, 75.0)
+	};
 	// define const speeds and gear-speed converter
 	const double speed_high(5.0); // per second
 	const double speed_mid(3.0); // per second, for escaping from the hinder
@@ -163,10 +168,10 @@ namespace MassBTNodes
 	public:
 		IsThereHinder(const std::string& name, const BT::NodeConfiguration& config) :
 			BT::ConditionNode(name, config) {}
-		void init(Point2D target, Point2D hinder, double tick_time, double safe_dist, double m)
+		void init(Point2D target, std::vector<Point2D> hinder_list, double tick_time, double safe_dist, double m)
 		{
 			_target = (target);
-			_hinder = (hinder);
+			_hinder_list = (hinder_list);
 			_tick_time = (tick_time);
 			_safe_dist = (safe_dist);
 			_m = (m);
@@ -176,14 +181,15 @@ namespace MassBTNodes
 			return {
 				BT::InputPort<Point2D>("pos"),
 				BT::InputPort<std::string>("gear"),
-				BT::OutputPort<std::string>("setgear")
+				BT::OutputPort<std::string>("setgear"),
+				BT::OutputPort<Point2D>("setkeyhinder")
 			};
 		}
 		BT::NodeStatus tick() override;
 
 	private:
 		Point2D _target;
-		Point2D _hinder;
+		std::vector<Point2D> _hinder_list;
 		double _tick_time;
 		double _safe_dist;
 		double _m;
@@ -194,10 +200,9 @@ namespace MassBTNodes
 	public:
 		ChangeInterTarget(const std::string& name, const BT::NodeConfiguration& config) :
 			BT::SyncActionNode(name, config) {}
-		void init(Point2D target, Point2D hinder, double safe_dist, double m, double tick_time)
+		void init(Point2D target, double safe_dist, double m, double tick_time)
 		{
 			_target = (target);
-			_hinder = (hinder);
 			_safe_dist = (safe_dist);
 			_m = (m);
 			_tick_time = (tick_time);
@@ -206,6 +211,7 @@ namespace MassBTNodes
 		{
 			return {
 				BT::InputPort<Point2D>("pos"),
+				BT::InputPort<Point2D>("keyhinder"),
 				BT::OutputPort<Point2D>("settarget")
 			};
 		}
@@ -213,9 +219,7 @@ namespace MassBTNodes
 
 	private:
 		Point2D _target;
-		Point2D _hinder;
 		double _safe_dist;
-		Point2D _inter_target;
 		double _m;
 		double _tick_time;
 	};
@@ -315,12 +319,12 @@ namespace MassBTNodes
 			}
 			else if (auto node_IsThereHinder = dynamic_cast<IsThereHinder*>(node.get()))
 			{
-				node_IsThereHinder->init(target, hinder, tick_time, safe_dist, m);
+				node_IsThereHinder->init(target, hinder_list, tick_time, safe_dist, m);
 				std::cout << "Node IsThereHinder Initialized." << std::endl;
 			}
 			else if (auto node_ChangeInterTarget = dynamic_cast<ChangeInterTarget*>(node.get()))
 			{
-				node_ChangeInterTarget->init(target, hinder, safe_dist, m, tick_time);
+				node_ChangeInterTarget->init(target, safe_dist, m, tick_time);
 				std::cout << "Node ChangeInterTarget Initialized." << std::endl;
 			}
 			else if (auto node_ResetInterTarget = dynamic_cast<ResetInterTarget*>(node.get()))

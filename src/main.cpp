@@ -60,9 +60,9 @@ static std::string xml_text = R"(
 		<Sequence name="move_to_intertarget">
 			<Fallback name="avoid_hinder">
 				<Inverter>
-					<Condition ID="IsThereHinder" pos="{now_pos}" gear="{gear}" setgear="{gear}"/>
+					<Condition ID="IsThereHinder" pos="{now_pos}" gear="{gear}" setgear="{gear}" setkeyhinder="{key_hinder}"/>
 				</Inverter>
-				<Action ID="ChangeInterTarget" pos="{now_pos}" settarget="{inter_target}"/>
+				<Action ID="ChangeInterTarget" pos="{now_pos}" keyhinder="{key_hinder}" settarget="{inter_target}"/>
 			</Fallback>
 			<Action ID="MoveTo" pos="{now_pos}" gear="{gear}" target="{inter_target}" setpos="{now_pos}"/>
 		</Sequence>

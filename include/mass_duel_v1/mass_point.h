@@ -40,6 +40,13 @@ struct Point2D
 	double vy() { return v * std::sin(theta); }
 	// calculate module function
 	double mod() { return std::pow(x * x + y * y, 0.5); }
+	// rotate function
+	Point2D rot(double angle)
+	{
+		return Point2D(
+			x * std::cos(angle) - y * std::sin(angle),
+			x * std::sin(angle) + y * std::cos(angle));
+	}
 	// move functions
 	Point2D move(double tick_time, double velocity, double angle)
 	{
@@ -66,5 +73,8 @@ std::array <double, 3> calcLineEqCoeff (Point2D pA, Point2D pB);
 double calcDistPointLine(Point2D p, std::array <double, 3> l);
 double calcDistTriPoints(Point2D pA, Point2D pB, Point2D pC);
 std::array <Point2D, 2> calcTanPointsOnCircle(Point2D pM, Point2D pC, double r);
+
+//functions for other math calculations
+double calcWeightedAvg(double A, double B, double fA, double fB);
 
 #endif // MASS_POINT_H

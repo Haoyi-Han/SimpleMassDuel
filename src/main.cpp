@@ -87,7 +87,7 @@ int main(int argc, char** argv)
 		("logrecord,r", bpo::value<std::string>()->implicit_value("bt_trace"), "record state changes in file")
 		("logmonitor,m", "use ZeroMQ to publish state changes for Groot to monitor")
 		("savetrace,s", bpo::value<std::string>()->implicit_value("./trace_mass.dat"), "save the traject of mass point to file")
-		("loop,l", "turn on loop mode to tick multi times till end");		
+		("loop,l", bpo::value<int>()->implicit_value(0), "turn on loop mode to tick multi times till end");
 	bpo::variables_map vm;
 	try
 	{
@@ -172,9 +172,12 @@ int main(int argc, char** argv)
 #endif
 	}
 	
+	int loop_times(0); // 0 for infinity loop
 	BT::NodeStatus status = BT::NodeStatus::RUNNING;
 	if (LOOP)
 	{
+		loop_times = vm["loop"].as<int>();
+		int count(0);
 		do
 		{
 			status = BT::NodeStatus::RUNNING;
@@ -185,7 +188,9 @@ int main(int argc, char** argv)
 				MassBTNodes::SleepMS(1);   // optional sleep to avoid "busy loops"
 			}
 			MassBTNodes::SleepMS(1000);
-		} while (status != BT::NodeStatus::SUCCESS);
+			count++;
+			std::cout << "count=" << count << std::endl;
+		} while ((status != BT::NodeStatus::SUCCESS) && (count != loop_times));
 	}
 	else status = tree.tickRoot();
 

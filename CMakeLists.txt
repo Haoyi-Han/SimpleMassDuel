@@ -8,31 +8,59 @@ find_package(BehaviorTreeV3)
 find_package(Boost)
 include_directories(${Boost_INCLUDE_DIRS})
 list(APPEND BOOST_LOCAL_LIB
-    ${PROJECT_SOURCE_DIR}/lib/libboost_program_options.a
-    ${PROJECT_SOURCE_DIR}/lib/libboost_program_options.so
+    ${PROJECT_SOURCE_DIR}/lib/libboost/libboost_exception.a
+    ${PROJECT_SOURCE_DIR}/lib/libboost/libboost_filesystem.a
+    ${PROJECT_SOURCE_DIR}/lib/libboost/libboost_filesystem.so
+    ${PROJECT_SOURCE_DIR}/lib/libboost/libboost_iostreams.a
+    ${PROJECT_SOURCE_DIR}/lib/libboost/libboost_iostreams.so
+    ${PROJECT_SOURCE_DIR}/lib/libboost/libboost_program_options.a
+    ${PROJECT_SOURCE_DIR}/lib/libboost/libboost_program_options.so
+    ${PROJECT_SOURCE_DIR}/lib/libboost/libboost_system.a
+    ${PROJECT_SOURCE_DIR}/lib/libboost/libboost_system.so
+#   /usr/lib/x86_64-linux-gnu/libboost_exception.a
+#   /usr/lib/x86_64-linux-gnu/libboost_filesystem.a
+#   /usr/lib/x86_64-linux-gnu/libboost_filesystem.so
+#   /usr/lib/x86_64-linux-gnu/libboost_iostreams.a
+#   /usr/lib/x86_64-linux-gnu/libboost_iostreams.so
+#   /usr/lib/x86_64-linux-gnu/libboost_program_options.a
+#   /usr/lib/x86_64-linux-gnu/libboost_program_options.so
+#   /usr/lib/x86_64-linux-gnu/libboost_system.a
+#   /usr/lib/x86_64-linux-gnu/libboost_system.so
 )
 
-list(APPEND NEED_SRC
+list(APPEND MASSDUEL_NEED_SRC
     ${PROJECT_SOURCE_DIR}/src/mass_point.cpp
     ${PROJECT_SOURCE_DIR}/src/mass_bt_nodes.cpp
 )
 
-add_library(massduel STATIC ${NEED_SRC})
-target_include_directories(massduel PUBLIC ${PROJECT_SOURCE_DIR}/include)
+add_library(massduel_v1 STATIC ${MASSDUEL_NEED_SRC})
+target_include_directories(massduel_v1 PUBLIC ${PROJECT_SOURCE_DIR}/include)
 
-list(APPEND NEED_LIB
+list(APPEND DEMO_NEED_LIB
     BT::behaviortree_cpp_v3
-    massduel
-#   ${Boost_LIBRARIES}
+    massduel_v1
+    ${Boost_LIBRARIES}
     ${BOOST_LOCAL_LIB}
-#   /usr/lib/x86_64-linux-gnu/libboost_program_options.a /usr/lib/x86_64-linux-gnu/libboost_program_options.so
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${CMAKE_DL_LIBS}
+)
+
+list(APPEND DRAW_NEED_LIB
+    BT::behaviortree_cpp_v3
+    massduel_v1
+    ${Boost_LIBRARIES}
+    ${BOOST_LOCAL_LIB}
     ${CMAKE_THREAD_LIBS_INIT}
     ${CMAKE_DL_LIBS}
 )
 
 add_executable(demo ${PROJECT_SOURCE_DIR}/src/main.cpp)
 target_compile_definitions(demo PUBLIC)
-target_link_libraries(demo PUBLIC ${NEED_LIB})
+target_link_libraries(demo PUBLIC ${DEMO_NEED_LIB})
+
+#add_executable(draw ${PROJECT_SOURCE_DIR}/src/draw_trace.cpp)
+#target_compile_definitions(draw PUBLIC)
+#target_link_libraries(draw PUBLIC ${DRAW_NEED_LIB})
 
 
 set(CMAKE_BUILD_TYPE "Debug")

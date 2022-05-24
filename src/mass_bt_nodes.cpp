@@ -137,18 +137,21 @@ namespace MassBTNodes
 		{
 			_gear = setGearCondition(_gear, "high");
 			setOutput("setgear", _gear);
+			std::cout << "Angle > pi/2, hinder without threat." << std::endl;
 			return BT::NodeStatus::FAILURE;
 		}
 		// check if predicted position of mass is *not* in the safe range of hinder 
-		if ((real_line_dist > _m * _safe_dist) || (real_dist > _safe_dist))
+		if ((real_line_dist > _m * _safe_dist) && (real_dist > _safe_dist))
 		{
 			_gear = setGearCondition(_gear, "high");
 			setOutput("setgear", _gear);
+			std::cout << "Predicted position not in hinder safe range." << std::endl;
 			return BT::NodeStatus::FAILURE;
 		}
 		// default case: mass in the safe range of hinder
 		_gear = setGearCondition(_gear, "mid");
 		setOutput("setgear", _gear);
+		std::cout << "Current position in hinder safe range." << std::endl;
 		return BT::NodeStatus::SUCCESS;
 	}
 
@@ -183,7 +186,7 @@ namespace MassBTNodes
 		// check if the new predicted position is in the hinder range
 		Point2D _predict_pos = _now_pos.move(_tick_time, _now_pos.v, std::atan2(_inter_target.y - _now_pos.y, _inter_target.x - _now_pos.x));
 		auto predict_dist = calcDistPoints(_predict_pos, _hinder);
-		std::cout << _m * _safe_dist - predict_dist << std::endl;
+		std::cout << "safedist - distNowHnder = " << _safe_dist - calcDistPoints(_now_pos, _hinder) << std::endl;
 		if (predict_dist < _m * _safe_dist)
 		{
 			// change inter-target to the intersection point of tangent and safe range

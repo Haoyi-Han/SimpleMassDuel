@@ -65,9 +65,5 @@ std::array <Point2D, 2> calcTanPointsOnCircle(Point2D pM, Point2D pC, double r)
 	);
 	pTanPts[0] = pTanPts[0].scalar(d_M_TP) + pM;
 	pTanPts[1] = pTanPts[1].scalar(d_M_TP) + pM;
-	std::cout << v_MC << std::endl;
-	std::cout << d_MC << ";" << std::cos(d_angle) << ";" << d_M_TP << std::endl;
-	std::cout << pTanPts[0] << std::endl;
-	std::cout << pTanPts[1] << std::endl;
 	return pTanPts;
 }

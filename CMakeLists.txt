@@ -58,10 +58,6 @@ add_executable(demo ${PROJECT_SOURCE_DIR}/src/main.cpp)
 target_compile_definitions(demo PUBLIC)
 target_link_libraries(demo PUBLIC ${DEMO_NEED_LIB})
 
-#add_executable(draw ${PROJECT_SOURCE_DIR}/src/draw_trace.cpp)
-#target_compile_definitions(draw PUBLIC)
-#target_link_libraries(draw PUBLIC ${DRAW_NEED_LIB})
-
 
 set(CMAKE_BUILD_TYPE "Debug")
 set(CMAKE_CXX_FLAGS_DEBUG "$ENV{CXXFLAGS} -O0 -g2 -ggdb -fstack-protector-all -march=native -fnon-call-exceptions -lboost_program_options")

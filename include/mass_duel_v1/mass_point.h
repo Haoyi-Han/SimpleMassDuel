@@ -72,6 +72,7 @@ double calcAngleVectors(Point2D vA, Point2D vB);
 std::array <double, 3> calcLineEqCoeff (Point2D pA, Point2D pB);
 double calcDistPointLine(Point2D p, std::array <double, 3> l);
 double calcDistTriPoints(Point2D pA, Point2D pB, Point2D pC);
+bool isTwoPointBilateral(Point2D pA, Point2D pB, std::array <double, 3> l);
 std::array <Point2D, 2> calcTanPointsOnCircle(Point2D pM, Point2D pC, double r);
 
 //functions for other math calculations

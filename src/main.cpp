@@ -100,11 +100,7 @@ int main(int argc, char** argv)
 		std::cerr << boost::diagnostic_information(boost_err) << std::endl;
 		return false;
 	}
-	if (vm.empty())
-	{
-		std::cout << "No options found!" << std::endl;
-	}
-	if (vm.count("help"))
+	if (vm.empty() || vm.count("help"))
 	{
 		std::cout << desc << std::endl;
 		return 1;

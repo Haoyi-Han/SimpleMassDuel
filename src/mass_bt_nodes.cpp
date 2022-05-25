@@ -41,7 +41,9 @@ namespace MassBTNodes
 			std::ofstream _out;
 			_out.open(_tracemass_filename, std::ios::app);
 			_out << std::setprecision(4) << std::fixed;
-			_out << _now_pos.x << " " << _now_pos.y << " " << _now_pos.v * std::cos(_now_pos.theta) << " " << _now_pos.v * std::sin(_now_pos.theta) << std::endl;
+			_out << _now_pos.x << " " << _now_pos.y << " " 
+				<< _now_pos.v * std::cos(_now_pos.theta) << " " 
+				<< _now_pos.v * std::sin(_now_pos.theta) << std::endl;
 			std::cout << "Write current position to file:" << _tracemass_filename << std::endl;
 			_out.close();
 		}
@@ -129,6 +131,11 @@ namespace MassBTNodes
 		{
 			return (calcDistTriPoints(pos, target, hinder) <= hinder_safe_dist);
 		};
+		// build predicted position after a tick time
+		double dx(_target.x - _now_pos.x);
+		double dy(_target.y - _now_pos.y);
+		double ntheta = (dx * dy != 0.0) ? std::atan2(dy, dx) : 0.0;
+		Point2D _predict_pos = _now_pos.move(_tick_time, gearToSpeed(_gear), ntheta);
 		// select the hinder which is the most threated by score
 		auto calcHinderScore = [](Point2D pos, Point2D target, Point2D hinder)
 		{
@@ -139,8 +146,6 @@ namespace MassBTNodes
 			double factor_hinder_mass(0.7), factor_hinder_massline(0.3);
 			return calcWeightedAvg(hinder_mass_dist, hinder_massline_dist, factor_hinder_mass, factor_hinder_massline);
 		};
-		_now_pos.v = gearToSpeed(_gear);
-		Point2D _predict_pos = _now_pos.move(_tick_time);
 		Point2D _hinder;
 		double hinder_score, hinder_former_score(1.0);
 		for (Point2D _hinder_check : _hinder_list)
@@ -175,11 +180,11 @@ namespace MassBTNodes
 			_gear = setGearCondition(_gear, "high");
 			setOutput("setgear", _gear);
 			setOutput("setkeyhinder", pToString(_hinder));
-			std::cout << "Angle > pi/2, hinder without threat." << std::endl;
+			std::cout << "Angle > Orthogonal angle, hinder without threat." << std::endl;
 			return BT::NodeStatus::FAILURE;
 		}
 		// check if predicted position of mass is *not* in the safe range of hinder 
-		if (!(isPredictRouteHitHinder(_now_pos, _target, _hinder, _safe_dist) 
+		if (!(isPredictRouteHitHinder(_now_pos, _target, _hinder, _safe_dist)
 			&& isPosHitHinder(_predict_pos, _hinder, _safe_dist)))
 		{
 			_gear = setGearCondition(_gear, "high");
@@ -212,16 +217,8 @@ namespace MassBTNodes
 		auto target_route = calcLineEqCoeff(_now_pos, _target);
 		Point2D p1, p2;
 		auto l = calcLineEqCoeff(_now_pos, _target);
-		auto isTwoPointBilateral = [](Point2D pA, Point2D pB, std::array <double, 3> l)
-		{
-			return ((l[0] * pA.x + l[1] * pA.y + l[2]) * (l[0] * pB.x + l[1] * pB.y + l[2]) < 0);
-		};
-		double dx, dy;
-		if (std::abs(target_route[0]) < ZERO_CHKPT)
-		{
-			dx = 0; dy = _m * _safe_dist;
-		}
-		else
+		double dx(0), dy(_m * _safe_dist);
+		if (std::abs(target_route[0]) > ZERO_CHKPT)
 		{
 			dx = std::pow(std::pow(_m * _safe_dist, 2) / (1.0 + std::pow(target_route[1] / target_route[0], 2)), 0.5);
 			dy = (l[1] / l[0]) * dx;
@@ -230,10 +227,12 @@ namespace MassBTNodes
 		p2 = { _hinder.x + dx, _hinder.y + dy, 0.0, 0.0 };
 		Point2D _inter_target = (isTwoPointBilateral(_hinder, p1, l)) ? p1 : p2;
 		// check if the new predicted position is in the hinder range
-		Point2D _predict_pos = _now_pos.move(_tick_time, _now_pos.v, std::atan2(_inter_target.y - _now_pos.y, _inter_target.x - _now_pos.x));
-		double predict_dist = calcDistPoints(_predict_pos, _hinder);
-		std::cout << "safedist - distNowHnder = " << _safe_dist - calcDistPoints(_now_pos, _hinder) << std::endl;
-		if (predict_dist < _m * _safe_dist)
+		Point2D _predict_pos_gear_mid = _now_pos.move(_tick_time, gearToSpeed("mid"), std::atan2(_inter_target.y - _now_pos.y, _inter_target.x - _now_pos.x));
+		Point2D _predict_pos_gear_low = _now_pos.move(_tick_time, gearToSpeed("low"), std::atan2(_inter_target.y - _now_pos.y, _inter_target.x - _now_pos.x));
+		double predict_dist_gear_mid = calcDistPoints(_predict_pos_gear_mid, _hinder);
+		double predict_dist_gear_low = calcDistPoints(_predict_pos_gear_low, _hinder);
+		std::cout << "distMassHinder - safedist  = " << calcDistPoints(_now_pos, _hinder) - _safe_dist << std::endl;
+		if ((predict_dist_gear_mid < _m * _safe_dist) || (predict_dist_gear_low < _m * _safe_dist))
 		{
 			// change inter-target to the intersection point of tangent and safe range
 			auto mass_hinder_TPs = calcTanPointsOnCircle(_now_pos, _hinder, _safe_dist);

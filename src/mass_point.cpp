@@ -47,6 +47,11 @@ double calcDistTriPoints(Point2D pA, Point2D pB, Point2D pC)
 	return calcDistPointLine(pC, l);
 }
 
+bool isTwoPointBilateral(Point2D pA, Point2D pB, std::array <double, 3> l)
+{
+	return ((l[0] * pA.x + l[1] * pA.y + l[2]) * (l[0] * pB.x + l[1] * pB.y + l[2]) < 0);
+}
+
 std::array <Point2D, 2> calcTanPointsOnCircle(Point2D pM, Point2D pC, double r)
 {
 	Point2D v_MC = pC - pM;

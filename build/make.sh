@@ -1,1 +1,0 @@
-CC=gcc-11 CXX=g++-11 cmake .. && make

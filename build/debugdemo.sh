@@ -1,1 +1,0 @@
-gdb --args ./demo -t -p -r -l

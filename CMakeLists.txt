@@ -1,65 +1,52 @@
 cmake_minimum_required(VERSION 3.10.2)
-project(SimpleMassDuel VERSION 0.1.5)
+project(SimpleMassDuel VERSION 0.1.9)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+option(BUILD_DEBUG_MODE "Build a Debug version" ON)
+option(BUILD_UNIT_TESTS "Build Unit Tests" ON)
+
+set(INC ${PROJECT_SOURCE_DIR}/include)
+set(SRC ${PROJECT_SOURCE_DIR}/src)
+set(3RD ${PROJECT_SOURCE_DIR}/3rdparty)
+set(TEST ${PROJECT_SOURCE_DIR}/tests)
+
+#---- Find Packages ----
+set(Boost_USE_STATIC_LIBS ON)
+#set(Boost_USE_STATIC_RUNTIME ON)
+find_package(Boost COMPONENTS program_options exception context REQUIRED QUIET)
+#if(Boost_FOUND)
+#    include_directories(${Boost_INCLUDE_DIRS})
+#    link_directories(${Boost_LIBRARY_DIRS})
+#else()
+#    message(WARNING "boost not found.")
+#endif()
+find_package(cppzmq)
+find_package(xtl)
+find_package(xtensor)
 find_package(BehaviorTreeV3)
 
-find_package(Boost)
-include_directories(${Boost_INCLUDE_DIRS})
-list(APPEND BOOST_LOCAL_LIB
-    ${PROJECT_SOURCE_DIR}/lib/libboost/libboost_exception.a
-    ${PROJECT_SOURCE_DIR}/lib/libboost/libboost_filesystem.a
-    ${PROJECT_SOURCE_DIR}/lib/libboost/libboost_filesystem.so
-    ${PROJECT_SOURCE_DIR}/lib/libboost/libboost_iostreams.a
-    ${PROJECT_SOURCE_DIR}/lib/libboost/libboost_iostreams.so
-    ${PROJECT_SOURCE_DIR}/lib/libboost/libboost_program_options.a
-    ${PROJECT_SOURCE_DIR}/lib/libboost/libboost_program_options.so
-    ${PROJECT_SOURCE_DIR}/lib/libboost/libboost_system.a
-    ${PROJECT_SOURCE_DIR}/lib/libboost/libboost_system.so
-#   /usr/lib/x86_64-linux-gnu/libboost_exception.a
-#   /usr/lib/x86_64-linux-gnu/libboost_filesystem.a
-#   /usr/lib/x86_64-linux-gnu/libboost_filesystem.so
-#   /usr/lib/x86_64-linux-gnu/libboost_iostreams.a
-#   /usr/lib/x86_64-linux-gnu/libboost_iostreams.so
-#   /usr/lib/x86_64-linux-gnu/libboost_program_options.a
-#   /usr/lib/x86_64-linux-gnu/libboost_program_options.so
-#   /usr/lib/x86_64-linux-gnu/libboost_system.a
-#   /usr/lib/x86_64-linux-gnu/libboost_system.so
-)
+#---- Add Library MassPointV2 & MassDuel2DV2 & MassBtNodesV2 ----
+add_subdirectory(${SRC}/mass_point_v2)
+add_subdirectory(${SRC}/mass_duel_2d_v2)
+add_subdirectory(${SRC}/mass_bt_nodes_v2)
 
-list(APPEND MASSDUEL_NEED_SRC
-    ${PROJECT_SOURCE_DIR}/src/mass_point.cpp
-    ${PROJECT_SOURCE_DIR}/src/mass_bt_nodes.cpp
-)
+#---- Add Executable Demo2D & Demo3D ----
+add_subdirectory(${SRC})
 
-add_library(massduel_v1 STATIC ${MASSDUEL_NEED_SRC})
-target_include_directories(massduel_v1 PUBLIC ${PROJECT_SOURCE_DIR}/include)
+#---- Build Tests ----
+if(BUILD_UNIT_TESTS)
+	find_package(GTest)
+	add_subdirectory(${TEST})
+endif()
 
-list(APPEND DEMO_NEED_LIB
-    BT::behaviortree_cpp_v3
-    massduel_v1
-    ${Boost_LIBRARIES}
-    ${BOOST_LOCAL_LIB}
-    ${CMAKE_THREAD_LIBS_INIT}
-    ${CMAKE_DL_LIBS}
-)
-
-list(APPEND DRAW_NEED_LIB
-    BT::behaviortree_cpp_v3
-    massduel_v1
-    ${Boost_LIBRARIES}
-    ${BOOST_LOCAL_LIB}
-    ${CMAKE_THREAD_LIBS_INIT}
-    ${CMAKE_DL_LIBS}
-)
-
-add_executable(demo ${PROJECT_SOURCE_DIR}/src/main.cpp)
-target_compile_definitions(demo PUBLIC)
-target_link_libraries(demo PUBLIC ${DEMO_NEED_LIB})
-
-
-set(CMAKE_BUILD_TYPE "Debug")
-set(CMAKE_CXX_FLAGS_DEBUG "$ENV{CXXFLAGS} -O0 -g2 -ggdb -fstack-protector-all -march=native -fnon-call-exceptions -lboost_program_options")
-# set(CMAKE_CXX_FLAGS_DEBUG "$ENV{CXXFLAGS} -O0 -Wall -g2 -ggdb -fstack-protector-all -march=native -fnon-call-exceptions")
-set(CMAKE_CXX_RELEASE "$ENV{CXXFLAGS} -O3 -Wall")
+#---- Build Configuration ----
+if(BUILD_DEBUG_MODE)
+	set(CMAKE_BUILD_TYPE "Debug")
+	set(CMAKE_CXX_FLAGS_DEBUG "$ENV{CXXFLAGS} -O0 -g2 -ggdb -fstack-protector-all -march=native -fnon-call-exceptions -lboost_program_options")
+	# set(CMAKE_CXX_FLAGS_DEBUG "$ENV{CXXFLAGS} -O0 -Wall -g2 -ggdb -fstack-protector-all -march=native -fnon-call-exceptions")
+	set(CMAKE_CXX_RELEASE "$ENV{CXXFLAGS} -O3 -Wall")
+else()
+	set(CMAKE_BUILD_TYPE "Release")
+endif()
